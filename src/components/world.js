@@ -750,6 +750,99 @@ export class World {
       return obstacles;
    }
 
+   // Generate corridor from car to target (following gniziemazity's approach)
+   generateCorridor(car, targetPoint) {
+      try {
+         // Find the nearest road segments to car and target
+         const carNearestSegment = this.#getNearestRoadSegment({ x: car.x, y: car.y });
+         const targetNearestSegment = this.#getNearestRoadSegment(targetPoint);
+         
+         if (!carNearestSegment || !targetNearestSegment) {
+            this.corridor = null;
+            return;
+         }
+         
+         // Create a simple corridor between car and target using road network
+         const corridorPath = this.#findPath(carNearestSegment, targetNearestSegment);
+         
+         if (corridorPath && corridorPath.length > 0) {
+            this.corridor = {
+               borders: this.#createCorridorBorders(corridorPath),
+               path: corridorPath
+            };
+         } else {
+            this.corridor = null;
+         }
+      } catch (error) {
+         console.error('Corridor generation error:', error);
+         this.corridor = null;
+      }
+   }
+
+   // Helper to find nearest road segment to a point
+   #getNearestRoadSegment(point) {
+      let nearestSegment = null;
+      let minDistance = Infinity;
+      
+      for (const segment of this.graph.segments) {
+         const dist = this.#distanceToSegment(point, segment);
+         if (dist < minDistance) {
+            minDistance = dist;
+            nearestSegment = segment;
+         }
+      }
+      
+      return nearestSegment;
+   }
+
+   // Helper to calculate distance from point to segment
+   #distanceToSegment(point, segment) {
+      const A = segment.p1;
+      const B = segment.p2;
+      const AB = { x: B.x - A.x, y: B.y - A.y };
+      const AP = { x: point.x - A.x, y: point.y - A.y };
+      
+      const ABdotAB = AB.x * AB.x + AB.y * AB.y;
+      const APdotAB = AP.x * AB.x + AP.y * AB.y;
+      
+      let t = APdotAB / ABdotAB;
+      t = Math.max(0, Math.min(1, t));
+      
+      const projection = {
+         x: A.x + t * AB.x,
+         y: A.y + t * AB.y
+      };
+      
+      const dx = point.x - projection.x;
+      const dy = point.y - projection.y;
+      return Math.sqrt(dx * dx + dy * dy);
+   }
+
+   // Simple path finding using graph segments (can be enhanced with A*)
+   #findPath(startSegment, endSegment) {
+      if (startSegment === endSegment) {
+         return [startSegment];
+      }
+      
+      // For now, return direct path - this can be enhanced with proper pathfinding
+      return [startSegment, endSegment];
+   }
+
+   // Create corridor borders from path segments
+   #createCorridorBorders(path) {
+      const borders = [];
+      
+      for (const segment of path) {
+         // Add segment borders as corridor boundaries
+         const envelope = new Envelope(segment, this.roadWidth);
+         if (envelope.poly && envelope.poly.segments) {
+            borders.push(...envelope.poly.segments);
+         }
+      }
+      
+      return borders.map(segment => [segment.p1, segment.p2]);
+   }
+
    save() {
       localStorage.setItem("world", JSON.stringify(this));
    }

@@ -112,12 +112,21 @@ export class Viewport {
       this.canvas.addEventListener("mousedown", this.#handleMouseDown.bind(this));
       this.canvas.addEventListener("mousemove", this.#handleMouseMove.bind(this));
       this.canvas.addEventListener("mouseup", this.#handleMouseUp.bind(this));
+      this.canvas.addEventListener("contextmenu", this.#handleContextMenu.bind(this));
+   }
+
+   #handleContextMenu(evt) {
+      // Prevent context menu when right-clicking for panning
+      if (this.drag.active) {
+         evt.preventDefault();
+      }
    }
 
    #handleMouseDown(evt) {
-      if (evt.button == 1) { // middle button
+      if (evt.button == 1 || evt.button == 2) { // middle button or right button
          this.drag.start = this.getMouse(evt);
          this.drag.active = true;
+         evt.preventDefault(); // Prevent context menu for right click
       }
    }
 

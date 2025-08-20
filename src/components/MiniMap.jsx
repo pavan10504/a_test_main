@@ -13,16 +13,15 @@ export default function MiniMap({ world, cars, bestCar, viewPoint, size = 300 })
     // Clear canvas
     ctx.clearRect(0, 0, size, size);
 
-    // Set up scaling and translation
-    const scaler = 0.1;
-    const scaledViewPoint = scale(viewPoint, -scaler);
+    // Set up scaling and translation to center around viewPoint (best car position)
+    const scaler = 0.05; // Smaller scaler for better overview
     
     ctx.save();
-    ctx.translate(
-      scaledViewPoint.x + size / 2, 
-      scaledViewPoint.y + size / 2
-    );
+    ctx.translate(size / 2, size / 2); // Center the minimap
     ctx.scale(scaler, scaler);
+    
+    // Translate to center around the viewPoint (best car position)
+    ctx.translate(-viewPoint.x, -viewPoint.y);
 
     // Draw road segments
     if (world.graph.segments) {
@@ -70,10 +69,17 @@ export default function MiniMap({ world, cars, bestCar, viewPoint, size = 300 })
         if (car.damaged) continue;
         
         ctx.beginPath();
-        ctx.fillStyle = car === bestCar ? "blue" : "gray";
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 2 / scaler;
-        ctx.arc(car.x, car.y, 5 / scaler, 0, Math.PI * 2);
+        if (car === bestCar) {
+          ctx.fillStyle = "red"; // Best car in red
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 3 / scaler;
+          ctx.arc(car.x, car.y, 8 / scaler, 0, Math.PI * 2);
+        } else {
+          ctx.fillStyle = "blue"; // Other cars in blue
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 1 / scaler;
+          ctx.arc(car.x, car.y, 4 / scaler, 0, Math.PI * 2);
+        }
         ctx.fill();
         ctx.stroke();
       }
@@ -81,14 +87,7 @@ export default function MiniMap({ world, cars, bestCar, viewPoint, size = 300 })
 
     ctx.restore();
 
-    // Draw center point (viewport center)
-    ctx.beginPath();
-    ctx.fillStyle = "blue";
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.arc(size / 2, size / 2, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+
 
   }, [world, cars, bestCar, viewPoint, size]);
 
@@ -96,13 +95,11 @@ export default function MiniMap({ world, cars, bestCar, viewPoint, size = 300 })
     <div className="minimap-container">
       <canvas 
         ref={canvasRef} 
-        width={size} 
-        height={size}
-        className="border border-gray-300 rounded bg-black"
-        style={{ width: size, height: size }}
+        
+        className="border border-gray-300 rounded bg-black w-max"
       />
       <div className="text-xs text-center mt-1 text-gray-600">
-        Mini Map
+        Following Best Car
       </div>
     </div>
   );

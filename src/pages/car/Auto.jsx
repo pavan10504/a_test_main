@@ -156,39 +156,27 @@ export default function AutoTrain() {
     return { startX, startY, startAngle };
   };
 
-  // Generate cars at start position
+  // Generate cars at start position following gniziemazity's approach
   const generateCars = (count) => {
     const { startX, startY, startAngle } = getStartPosition();
     const newCars = [];
     
     for (let i = 0; i < count; i++) {
-      const lateralJitter = (Math.random() - 0.5) * 10;
       const car = new Car(
-        startX + lateralJitter, 
-        startY + lateralJitter, 
+        startX, 
+        startY, 
         30, 
         50, 
         "AI", 
         startAngle
       );
       
-      // Initialize with random brain or load saved brain for first car
-      if (i === 0) {
-        const savedBrain = localStorage.getItem("bestBrain");
-        if (savedBrain) {
-          try {
-            car.brain = JSON.parse(savedBrain);
-          } catch (error) {
-            car.brain = new NeuralNetwork([car.sensor.rayCount, 6, 4]);
-          }
-        } else {
-          car.brain = new NeuralNetwork([car.sensor.rayCount, 6, 4]);
-        }
-      } else {
-        // Copy brain from first car and mutate
-        car.brain = JSON.parse(JSON.stringify(newCars[0].brain));
-        NeuralNetwork.mutate(car.brain, 0.1);
-      }
+      // Initialize tracking variables (author's approach)
+      car.totalDistance = 0;
+      car.fittness = 0; // Following author's spelling and approach
+      
+      // Initialize neural network (following author's standard approach)
+      car.brain = new NeuralNetwork([car.sensor.rayCount, 6, 4]);
       
       newCars.push(car);
     }
@@ -196,38 +184,95 @@ export default function AutoTrain() {
     return newCars;
   };
 
-  // Calculate fitness based on distance to target
+  // Enhanced fitness calculation following gniziemazity's approach
   const calculateFitness = (car) => {
     const world = worldRef.current;
     const targetMarking = world.markings.find(m => m instanceof Target);
     
-    if (!targetMarking) return 0;
+    if (!targetMarking) {
+      // If no target, use basic speed-based fitness like in racing mode
+      return car.fittness || 0;
+    }
     
+    // Initialize totalDistance if not set
+    if (!car.totalDistance) {
+      car.totalDistance = 0;
+    }
+    
+    // Calculate distance to target
     const dx = car.x - targetMarking.center.x;
     const dy = car.y - targetMarking.center.y;
     const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
     
-    // Simple fitness: closer to target = higher fitness
-    const baseFitness = Math.max(0, 1000 - distanceToTarget);
+    // Following gniziemazity's approach: base fitness on progress towards target
+    let fitness = 0;
     
-    // Bonus for reaching target
-    if (distanceToTarget < 20) {
-      return baseFitness + 5000;
+    // 1. Primary reward: proximity to target (inverse distance)
+    const maxDistance = 2000; // Adjust based on typical world size
+    const targetProximityScore = Math.max(0, maxDistance - distanceToTarget);
+    fitness += targetProximityScore;
+    
+    // 2. Secondary reward: total distance traveled (exploration bonus)
+    fitness += car.totalDistance * 0.1; // Smaller weight than target proximity
+    
+    // 3. Speed-based reward for active movement (like author's fittness += speed)
+    if (car.speed && car.speed > 0.1) {
+      fitness += car.speed;
     }
     
-    // Penalty for damaged cars
+    // 4. Large bonus for reaching target (goal achievement)
+    if (distanceToTarget < 50) { // Generous target radius
+      fitness += 10000;
+      // Extra bonus for precision
+      if (distanceToTarget < 30) {
+        fitness += 5000;
+      }
+    }
+    
+    // 5. Corridor following bonus - if world can generate corridor to target
+    try {
+      if (world.generateCorridor && typeof world.generateCorridor === 'function') {
+        world.generateCorridor(car, targetMarking.center);
+        if (world.corridor && world.corridor.borders) {
+          // Bonus for following the corridor path
+          const corridorBonus = 100; // Adjust as needed
+          fitness += corridorBonus;
+        }
+      }
+    } catch (error) {
+      // Corridor generation might not be available
+    }
+    
+    // 6. Damage penalty but don't zero out (preserve learning)
     if (car.damaged) {
-      return baseFitness * 0.1;
+      fitness *= 0.5; // Less harsh than before
     }
     
-    return baseFitness;
+    return fitness;
   };
 
-  // Start training with user settings
+  // Start training with user settings (following gniziemazity's approach)
   const startTraining = () => {
     if (!worldLoaded) return;
     
     const newCars = generateCars(carSpawnLimit);
+    
+    // Load best brain from localStorage if available (author's approach)
+    const savedBrain = localStorage.getItem("bestBrain");
+    if (savedBrain) {
+      try {
+        const bestBrain = JSON.parse(savedBrain);
+        for (let i = 0; i < newCars.length; i++) {
+          newCars[i].brain = JSON.parse(JSON.stringify(bestBrain));
+          if (i !== 0) {
+            NeuralNetwork.mutate(newCars[i].brain, 0.1);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load best brain:", error);
+      }
+    }
+    
     setCars(newCars);
     setBestCar(newCars[0]);
     setIsTraining(true);
@@ -302,28 +347,15 @@ export default function AutoTrain() {
     // Generate new generation
     const newCars = generateCars(carSpawnLimit);
     
-    // Apply genetic algorithm
+    // Apply gniziemazity's mutation approach
     for (let i = 0; i < newCars.length; i++) {
       if (i === 0) {
-        // Keep best car
+        // Keep best car brain (no mutation)
         newCars[i].brain = JSON.parse(JSON.stringify(bestCarBrain));
-      } else if (i < 5) {
-        // Top 5 with light mutation
-        newCars[i].brain = JSON.parse(JSON.stringify(bestCarBrain));
-        NeuralNetwork.mutate(newCars[i].brain, 0.05);
-      } else if (i < carSpawnLimit * 0.5) {
-        // First half with moderate mutation
-        newCars[i].brain = JSON.parse(JSON.stringify(bestCarBrain));
-        NeuralNetwork.mutate(newCars[i].brain, 0.2);
       } else {
-        // Second half with high mutation or random
-        if (Math.random() < 0.8) {
-          newCars[i].brain = JSON.parse(JSON.stringify(bestCarBrain));
-          NeuralNetwork.mutate(newCars[i].brain, 0.5);
-        } else {
-          // Completely random brain
-          newCars[i].brain = new NeuralNetwork([newCars[i].sensor.rayCount, 6, 4]);
-        }
+        // All other cars get mutated version of best brain (author's standard approach)
+        newCars[i].brain = JSON.parse(JSON.stringify(bestCarBrain));
+        NeuralNetwork.mutate(newCars[i].brain, 0.1); // Standard mutation rate from author
       }
     }
     
@@ -352,9 +384,22 @@ export default function AutoTrain() {
     // Update cars
     cars.forEach((car, index) => {
       if (!car.damaged) {
-        // Update car with proper collision objects
-        const roadBorders = world.borders || [];
+        // Store previous position for distance calculation
+        const prevX = car.x;
+        const prevY = car.y;
+        
+        // Update car with proper collision objects following gniziemazity's approach
+        const roadBorders = world.roadBorders ? world.roadBorders.map((s) => [s.p1, s.p2]) : [];
         car.update(roadBorders, [], world);
+        
+        // Calculate distance traveled and add to total
+        const distanceMoved = Math.sqrt(
+          Math.pow(car.x - prevX, 2) + Math.pow(car.y - prevY, 2)
+        );
+        if (!car.totalDistance) {
+          car.totalDistance = 0;
+        }
+        car.totalDistance += distanceMoved;
         
         // Check if car is stuck (not moving for sleepTimer seconds)
         const carId = `car_${index}`;
@@ -384,16 +429,17 @@ export default function AutoTrain() {
     const aliveCarsList = cars.filter(car => !car.damaged);
     setAliveCars(aliveCarsList.length);
     
-    // Find current best car (alive car with highest fitness)
+    // Find current best car using gniziemazity's approach (alive car with highest fittness)
     if (aliveCarsList.length > 0) {
       const currentBest = aliveCarsList.reduce((best, car) => {
-        const bestFitness = calculateFitness(best);
-        const carFitness = calculateFitness(car);
-        return carFitness > bestFitness ? car : best;
+        // Use the car's own fittness property (updated during movement)
+        const bestFittness = best.fittness || 0;
+        const carFittness = car.fittness || 0;
+        return carFittness > bestFittness ? car : best;
       });
       setBestCar(currentBest);
       
-      // Make minimap follow best car
+      // Make main viewport follow best car
       viewport.offset.x = -currentBest.x;
       viewport.offset.y = -currentBest.y;
     }
@@ -550,7 +596,7 @@ export default function AutoTrain() {
 
       {/* Settings Panel */}
       {worldLoaded && !isTraining && showSettings && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+        <div className="absolute inset-0  bg-opacity-50 flex items-center justify-center z-30">
           <div className="bg-white/95 backdrop-blur-sm p-8 rounded-xl shadow-xl text-center max-w-lg border border-gray-200">
             <h2 className="text-2xl font-bold mb-4 text-gray-800">Training Settings</h2>
             
@@ -702,7 +748,7 @@ export default function AutoTrain() {
           </div>
           
           {/* MiniMap */}
-          <div className="bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-xl border border-gray-200">
+          <div className=" bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-xl border border-gray-200">
             <div className="text-sm font-semibold mb-2 text-center text-gray-700">
               MiniMap
             </div>
@@ -710,7 +756,7 @@ export default function AutoTrain() {
               world={worldRef.current}
               cars={cars}
               bestCar={bestCar}
-              viewPoint={viewportRef.current ? viewportRef.current.getOffset() : { x: 0, y: 0 }}
+              viewPoint={bestCar ? { x: bestCar.x, y: bestCar.y } : { x: 0, y: 0 }}
               size={200}
             />
           </div>

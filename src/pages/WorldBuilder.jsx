@@ -590,8 +590,23 @@ export default function WorldBuilder() {
         <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-lg max-w-xs">
           <h3 className="font-semibold mb-2">Instructions:</h3>
           <div className="space-y-2 text-sm">
+            {/* Navigation Controls */}
+            <div className="text-xs bg-gray-50 p-2 rounded">
+              🖱️ <strong>Navigation:</strong><br/>
+              • Mouse wheel: Zoom in/out<br/>
+              • Right-click + drag: Pan around<br/>
+              • Middle-click + drag: Pan around
+            </div>
+            
             <div className="text-xs text-gray-600">
-              {activeTool === 'obstacle' ? (
+              {activeTool === 'road' ? (
+                <>
+                  🛣️ <strong>Road Mode:</strong><br/>
+                  • Click to place points and build roads<br/>
+                  • Distance shown while drawing<br/>
+                  • Right-click to cancel/delete points
+                </>
+              ) : activeTool === 'obstacle' ? (
                 <>
                   🚧 <strong>Obstacle Mode:</strong><br/>
                   Click on roads to place {obstacleTypes.find(t => t.id === selectedObstacleType)?.name || 'obstacles'}.<br/>

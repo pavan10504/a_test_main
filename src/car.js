@@ -50,48 +50,31 @@ export class Car{
     update(roadBorders,traffic,world){
         if(!this.damaged){
             this.#move();
+            
+            // Following gniziemazity's approach: fitness += speed for movement reward
+            if (!this.fittness) this.fittness = 0;
+            this.fittness += Math.abs(this.speed);
+            
             this.polygon=this.#createPolygon();
             this.damaged=this.#assessDamage(roadBorders,traffic,world);
         }
         if(this.sensor){
             this.sensor.update(roadBorders,traffic);
             
-            // Normalize sensor readings (invert so 1 = clear path, 0 = obstacle close)
-            const normalizedSensors = this.sensor.readings.map(
-                s => s == null ? 1.0 : (1.0 - s.offset / this.sensor.rayLength)
+            // Following the author's approach: normalize sensor readings
+            const offsets=this.sensor.readings.map(
+                s=>s==null?0:1-s.offset
             );
             
             if(this.useBrain && this.brain){
-                // Author's original: use only sensor inputs (5)
-                const inputs = normalizedSensors;
-                const outputs=NeuralNetwork.feedForward(inputs,this.brain);
+                // Author's approach: simple sensor inputs to neural network
+                const outputs=NeuralNetwork.feedForward(offsets,this.brain);
                 
-                // Continuous mapping with deadzones (tanh outputs in [-1,1])
-                const throttle = outputs[0];      // desire to go forward
-                const leftOut = outputs[1];       // left influence
-                const rightOut = outputs[2];      // right influence
-                const brake = outputs[3];         // desire to reverse
-
-                const steer = rightOut - leftOut; // positive => turn right, negative => left
-                const steerDeadzone = 0.05;
-                const throttleDeadzone = 0.05;
-
-                // Resolve throttle vs brake into booleans with deadzone and anti-conflict
-                const netThrottle = throttle - Math.max(0, brake);
-                this.controls.forward = netThrottle > throttleDeadzone;
-                this.controls.reverse = brake - Math.max(0, throttle) > throttleDeadzone;
-
-                // Resolve steering
-                if (steer > steerDeadzone) {
-                    this.controls.right = true;
-                    this.controls.left = false;
-                } else if (steer < -steerDeadzone) {
-                    this.controls.left = true;
-                    this.controls.right = false;
-                } else {
-                    this.controls.left = false;
-                    this.controls.right = false;
-                }
+                // Map outputs to controls (author's standard approach)
+                this.controls.forward=outputs[0];
+                this.controls.left=outputs[1];
+                this.controls.right=outputs[2];
+                this.controls.reverse=outputs[3];
             }
         }
     }

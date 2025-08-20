@@ -528,7 +528,7 @@ export default function Manual() {
       {/* Start Driving Button */}
       {worldLoaded && !isDriving && (
         <div className="absolute inset-0 flex items-center justify-center z-20">
-          <div className="bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-xl text-center">
+          <div className="bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl text-center">
             <div className="text-6xl mb-4">🎮</div>
             <h2 className="text-2xl font-bold mb-4">Ready to Drive</h2>
             <p className="text-gray-600 mb-6 max-w-md">
