@@ -21,18 +21,7 @@ export default function WorldBuilder() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showObstacleMenu, setShowObstacleMenu] = useState(false);
   const [showOSMDialog, setShowOSMDialog] = useState(false);
-  const [selectedObstacleType, setSelectedObstacleType] = useState('pothole');
   
-  // Obstacle types with their display info
-  const obstacleTypes = [
-    { id: 'pothole', name: 'Pothole', emoji: '🕳️', description: 'Road damage' },
-    { id: 'speedbump', name: 'Speed Bump', emoji: '🏔️', description: 'Traffic calming' },
-    { id: 'construction', name: 'Construction', emoji: '🚧', description: 'Work zone' },
-    { id: 'cow', name: 'Cow', emoji: '🐄', description: 'Livestock' },
-    { id: 'autorickshaw', name: 'Auto-rickshaw', emoji: '🛺', description: 'Three-wheeler' },
-    { id: 'vendor', name: 'Street Vendor', emoji: '🛒', description: 'Food cart' },
-    { id: 'debris', name: 'Road Debris', emoji: '🪨', description: 'Scattered rocks' }
-  ];
   
   const viewportRef = useRef(null);
   const worldRef = useRef(null);
@@ -44,7 +33,7 @@ export default function WorldBuilder() {
   const yieldEditorRef = useRef(null);
   const crossingEditorRef = useRef(null);
   const parkingEditorRef = useRef(null);
-  const obstacleEditorRef = useRef(null);
+ 
 
   // Initialize world and editors
   useEffect(() => {
@@ -91,13 +80,8 @@ export default function WorldBuilder() {
     yieldEditorRef.current = new YieldEditor(viewport, world);
     crossingEditorRef.current = new CrossingEditor(viewport, world);
     parkingEditorRef.current = new ParkingEditor(viewport, world);
-    obstacleEditorRef.current = new ObstacleEditor(viewport, world);
     
-    // Set initial obstacle type
-    if (obstacleEditorRef.current) {
-      obstacleEditorRef.current.obstacleType = selectedObstacleType;
-    }
-
+    
     let animationFrame;
     const loop = () => {
       viewport.reset();
@@ -124,7 +108,7 @@ export default function WorldBuilder() {
         yieldEditorRef.current,
         crossingEditorRef.current,
         parkingEditorRef.current,
-        obstacleEditorRef.current
+   
       ];
 
       editors.forEach(editor => {
@@ -157,7 +141,6 @@ export default function WorldBuilder() {
       yield: yieldEditorRef.current,
       crossing: crossingEditorRef.current,
       parking: parkingEditorRef.current,
-      obstacle: obstacleEditorRef.current
     };
 
     // Disable all editors first
@@ -174,48 +157,12 @@ export default function WorldBuilder() {
     }
   }, [activeTool]);
 
-  // Update obstacle type when selection changes
-  useEffect(() => {
-    if (obstacleEditorRef.current) {
-      obstacleEditorRef.current.obstacleType = selectedObstacleType;
-    }
-  }, [selectedObstacleType]);
-
-  // Close obstacle menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showObstacleMenu && !event.target.closest('.obstacle-menu-container')) {
-        setShowObstacleMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showObstacleMenu]);
-
-  const handleObstacleClick = () => {
-    if (activeTool === 'obstacle') {
-      // If already active, toggle menu
-      setShowObstacleMenu(!showObstacleMenu);
-    } else {
-      // If not active, activate tool and show menu
-      setActiveTool('obstacle');
-      setShowObstacleMenu(true);
-    }
-  };
-
-  const handleObstacleTypeSelect = (type) => {
-    setSelectedObstacleType(type);
-    setShowObstacleMenu(false);
-  };
-
   const handleSaveWorld = () => {
     if (worldRef.current) {
       try {
         const worldData = {
           graph: worldRef.current.graph,
           markings: worldRef.current.markings,
-          obstacles: worldRef.current.obstacles || [], // Add obstacles to save data
           roadWidth: worldRef.current.roadWidth,
           roadRoundness: worldRef.current.roadRoundness,
           buildingWidth: worldRef.current.buildingWidth,
@@ -243,7 +190,6 @@ export default function WorldBuilder() {
           const optimizedData = {
             graph: worldRef.current.graph,
             markings: worldRef.current.markings,
-            obstacles: worldRef.current.obstacles || [],
             roadWidth: worldRef.current.roadWidth,
             roadRoundness: worldRef.current.roadRoundness,
             buildingWidth: worldRef.current.buildingWidth,
@@ -315,7 +261,6 @@ export default function WorldBuilder() {
         const worldData = {
           graph: worldRef.current.graph,
           markings: worldRef.current.markings,
-          obstacles: worldRef.current.obstacles || [],
           roadWidth: worldRef.current.roadWidth,
           roadRoundness: worldRef.current.roadRoundness,
           buildingWidth: worldRef.current.buildingWidth,
@@ -532,55 +477,6 @@ export default function WorldBuilder() {
               <div className="text-lg">🅿️</div>
               <div className="text-xs font-medium">Park</div>
             </button>
-
-            {/* Obstacle Tool with Dropdown */}
-            <div className="relative obstacle-menu-container">
-              <button
-                onClick={handleObstacleClick}
-                className={`flex flex-col items-center justify-center w-16 h-16 rounded-lg transition-all ${
-                  activeTool === 'obstacle' 
-                    ? 'bg-orange-500 text-white shadow-lg scale-105' 
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
-                title="Indian Road Obstacles"
-              >
-                <div className="text-lg">
-                  {obstacleTypes.find(t => t.id === selectedObstacleType)?.emoji || '🚧'}
-                </div>
-                <div className="text-xs font-medium">Obstacles</div>
-                {activeTool === 'obstacle' && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-600 rounded-full flex items-center justify-center">
-                    <div className="text-[8px] text-white">▼</div>
-                  </div>
-                )}
-              </button>
-
-              {/* Obstacle Type Dropdown Menu */}
-              {showObstacleMenu && (
-                <div className="absolute bottom-20 left-0 bg-white rounded-lg shadow-xl border border-gray-200 p-2 min-w-48 z-30">
-                  <div className="text-xs font-semibold text-gray-700 mb-2 px-2">Select Obstacle Type:</div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {obstacleTypes.map((obstacle) => (
-                      <button
-                        key={obstacle.id}
-                        onClick={() => handleObstacleTypeSelect(obstacle.id)}
-                        className={`flex items-center gap-3 p-2 rounded-md transition-colors text-left ${
-                          selectedObstacleType === obstacle.id
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'hover:bg-gray-100'
-                        }`}
-                      >
-                        <span className="text-lg">{obstacle.emoji}</span>
-                        <div>
-                          <div className="text-sm font-medium">{obstacle.name}</div>
-                          <div className="text-xs text-gray-500">{obstacle.description}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
