@@ -7,6 +7,8 @@ import AutoTrain from './pages/car/Auto';
 import Manual from './pages/car/Manual';
 import CitySimulation from './pages/CitySimulation';
 import NotFound from './pages/NotFound';
+import NeuralHomePage from './pages/neural/neural_home.jsx';
+import NeuralIntermediatePage from './pages/neural/advance.jsx';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/world-builder" element={<WorldBuilder />} />
+              <Route path="/nhome" element={<NeuralHomePage />} />
+              <Route path="/neural/advanced" element={<NeuralIntermediatePage />} />
               <Route path="/car/auto" element={<AutoTrain />} />
               <Route path="/car/manual" element={<Manual />} />
               <Route path="/city-simulation" element={<CitySimulation />} />
